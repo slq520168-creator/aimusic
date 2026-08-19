@@ -6,18 +6,29 @@ const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const writeModal=document.querySelector('#writeModal');
 if(!writeModal) throw new Error('AI_WRITE_MODAL_MISSING');
 const sheet=writeModal.querySelector('.sheet');
-sheet.innerHTML=`<h3>AI 写歌</h3>
+sheet.innerHTML=`<style>
+#writeModal .sheet{padding:16px;max-height:94vh}
+#writeModal .field{margin:5px 0}
+#writeModal h3{margin-bottom:10px}
+#writeModal #aiLyrics{height:132px;min-height:132px;max-height:132px;overflow-y:auto;resize:none;line-height:1.48}
+#writeModal .ai-step2{margin-top:6px;width:100%;font-size:16px;padding:14px 12px}
+#writeModal .ai-flow-tip{margin:6px 2px 2px;font-size:12px;color:#7b8190}
+#writeModal #generatedBox{margin-top:8px}
+#writeModal #generatedAudio{height:42px}
+@media(max-height:760px){#writeModal #aiLyrics{height:104px;min-height:104px;max-height:104px}#writeModal .field{padding:11px 12px}#writeModal .btn{padding:11px}}
+</style>
+<h3>AI 写歌</h3>
 <input class="field" id="aiTheme" maxlength="300" placeholder="歌曲主题，例如：离开家乡后的第一个夜晚">
 <div class="row"><select class="field" id="aiMood"><option>温暖</option><option>伤感</option><option>励志</option><option>浪漫</option><option>自由</option><option>热烈</option></select><select class="field" id="aiStyle"><option>流行</option><option>民谣</option><option>电子</option><option>说唱</option><option>摇滚</option><option>R&B</option><option>国风</option><option>纯音乐氛围</option></select></div>
 <div class="row"><select class="field" id="aiLanguage"><option>中文</option><option>English</option></select><select class="field" id="aiVoice"><option>女声</option><option>男声</option><option>男女合唱</option><option>自然人声</option></select></div>
 <input class="field" id="aiArtist" maxlength="80" placeholder="创作者名称">
 <div class="row"><button class="btn alt close" id="aiClose">取消</button><button class="btn" id="makeLyrics">1. AI 生成歌词</button></div>
-<textarea class="field" id="aiLyrics" rows="12" placeholder="AI歌词会出现在这里，也可以自己修改或直接粘贴原创歌词"></textarea>
+<textarea class="field" id="aiLyrics" rows="5" placeholder="AI歌词会出现在这里；内容较长时在框内上下滑动，也可以自己修改"></textarea>
 <input class="field" id="aiTitle" maxlength="120" placeholder="歌曲名称">
-<p class="notice">歌曲生成采用多通道自动切换。主通道繁忙或超时会自动换备用通道，不会无限卡住。</p>
+<button class="btn ai-step2" id="makeSong">2. 生成完整歌曲</button>
+<p class="ai-flow-tip">生成歌词后直接点上面的第 2 步，不需要再往页面底部找按钮。</p>
 <div id="aiStatus" class="status"></div>
-<button class="btn" id="makeSong" style="width:100%;margin-top:10px">2. 生成完整歌曲</button>
-<div id="generatedBox" class="hidden" style="margin-top:12px"><audio id="generatedAudio" controls style="width:100%"></audio><div class="row"><button class="btn alt" id="regenerate">重新生成</button><button class="btn" id="saveGenerated">3. 保存到待审核</button></div></div>`;
+<div id="generatedBox" class="hidden"><audio id="generatedAudio" controls style="width:100%"></audio><div class="row"><button class="btn alt" id="regenerate">重新生成</button><button class="btn" id="saveGenerated">3. 保存到待审核</button></div></div>`;
 
 const $=s=>sheet.querySelector(s);
 const status=(text,ok=false)=>{const e=$('#aiStatus');e.textContent=text;e.className='status show'+(ok?' ok':'')};
@@ -27,7 +38,7 @@ let generatedBlob=null;
 async function guestApi(body){const r=await fetch(SUPABASE_URL+'/functions/v1/aimusic-guest-points',{method:'POST',headers:{'content-type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify(body)});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||j.error||'游客身份服务失败');return j}
 async function ensureGuest(){let token=localStorage.getItem('aimusic_guest_token')||'';if(token){try{const s=await guestApi({action:'status',token});return {token,...s}}catch{localStorage.removeItem('aimusic_guest_token')}}const j=await guestApi({action:'issue'});token=j.token;localStorage.setItem('aimusic_guest_token',token);return {token,...j}}
 
-$('#makeLyrics').onclick=async()=>{const btn=$('#makeLyrics'),theme=$('#aiTheme').value.trim();if(theme.length<2){status('先写歌曲主题');return}btn.disabled=true;status('AI 正在写完整歌词…');try{const r=await fetch(`${SUPABASE_URL}/functions/v1/aimusic-lyrics`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({theme,mood:$('#aiMood').value,style:$('#aiStyle').value,language:$('#aiLanguage').value,voice:$('#aiVoice').value})});const j=await r.json();if(!r.ok||!j?.ok)throw new Error(j?.message||j?.error||'歌词生成失败');$('#aiLyrics').value=j.lyrics;$('#aiTitle').value=j.title||'';status('歌词已生成 ✓ 可以修改后再生成歌曲。',true)}catch(e){status('歌词生成失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}};
+$('#makeLyrics').onclick=async()=>{const btn=$('#makeLyrics'),theme=$('#aiTheme').value.trim();if(theme.length<2){status('先写歌曲主题');return}btn.disabled=true;status('AI 正在写完整歌词…');try{const r=await fetch(`${SUPABASE_URL}/functions/v1/aimusic-lyrics`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({theme,mood:$('#aiMood').value,style:$('#aiStyle').value,language:$('#aiLanguage').value,voice:$('#aiVoice').value})});const j=await r.json();if(!r.ok||!j?.ok)throw new Error(j?.message||j?.error||'歌词生成失败');$('#aiLyrics').value=j.lyrics;$('#aiTitle').value=j.title||'';status('歌词已生成 ✓ 下一步直接点“2. 生成完整歌曲”。',true);$('#makeSong').scrollIntoView({block:'nearest',behavior:'smooth'})}catch(e){status('歌词生成失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}};
 
 function timeout(promise,ms,label){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label||'通道超时')),ms))])}
 
@@ -79,14 +90,13 @@ async function makeFullSong(){
   let firstError='';
   try{
     try{generatedBlob=await generateByStability(lyrics,style,mood,voice)}catch(e){firstError=e?.message||String(e);console.warn('Stability failed:',e);generatedBlob=await generateByDiffRhythm(lyrics,style,mood,voice)}
-    const local=URL.createObjectURL(generatedBlob);$('#generatedAudio').src=local;$('#generatedBox').classList.remove('hidden');status('完整歌曲生成成功 ✓ 先试听，满意后保存。',true)
+    const local=URL.createObjectURL(generatedBlob);$('#generatedAudio').src=local;$('#generatedBox').classList.remove('hidden');status('完整歌曲生成成功 ✓ 试听后直接点“3. 保存到待审核”。',true);$('#generatedBox').scrollIntoView({block:'nearest',behavior:'smooth'})
   }catch(e){console.error(e);status('所有歌曲生成通道暂时不可用：'+(e?.message||firstError||'请稍后重试'))}finally{btn.disabled=false}
 }
 $('#makeSong').onclick=makeFullSong;$('#regenerate').onclick=makeFullSong;
 
 $('#saveGenerated').onclick=async()=>{const btn=$('#saveGenerated'),title=$('#aiTitle').value.trim(),artist=$('#aiArtist').value.trim();if(!generatedBlob){status('请先生成完整歌曲');return}if(!title||!artist){status('请填写歌曲名称和创作者名称');return}btn.disabled=true;status('正在保存歌曲到云端待审核…');const path=`ai/${Date.now()}-${crypto.randomUUID()}.mp3`;try{const g=await ensureGuest();const up=await db.storage.from('aimusic-audio').upload(path,generatedBlob,{cacheControl:'3600',upsert:false,contentType:'audio/mpeg'});if(up.error)throw up.error;const meta=await db.from('aimusic_tracks').insert({title,artist,genre:$('#aiStyle').value,description:`AI原创 · ${$('#aiMood').value} · ${$('#aiVoice').value}`,storage_path:path,status:'pending',plays:0,guest_id:g.guest_id}).select('id').single();if(meta.error){await db.storage.from('aimusic-audio').remove([path]);throw meta.error}if(typeof window.AIMUSIC_GUEST_AWARD==='function')await window.AIMUSIC_GUEST_AWARD('upload',meta.data.id);status('保存成功 ✓ 已进入待审核，并已记录上传积分。',true)}catch(e){console.error(e);status('保存失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}};
 
-// 游客身份只保存在本机，不再向用户展示或要求保存临时网址。
 const pointsBtn=document.querySelector('#pointsBtn'),pointsModal=document.querySelector('#pointsModal'),guestUrlBox=document.querySelector('#guestUrlBox'),copyBtn=document.querySelector('#copyGuestUrl'),closePoints=document.querySelector('#closePoints'),guestCode=document.querySelector('#guestCode');
 if(guestUrlBox)guestUrlBox.style.display='none';
 if(copyBtn)copyBtn.style.display='none';
