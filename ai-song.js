@@ -136,3 +136,39 @@ const pointsBtn=document.querySelector('#pointsBtn'),pointsModal=document.queryS
 if(guestCode)guestCode.textContent='游客积分会自动保存在当前设备。注册正式账号后可合并兑换。';
 if(pointsBtn)pointsBtn.onclick=()=>{if(guestCode)guestCode.textContent='游客积分会自动保存在当前设备。注册正式账号后可合并兑换。';pointsModal?.classList.add('show')};
 if(new URLSearchParams(location.search).has('g'))history.replaceState(null,'',location.pathname);
+
+// Telegram Mini App 适配：仅增强 Telegram 内显示，不改变现有音乐、上传、积分和生成逻辑。
+(function initTelegramMiniApp(){
+  const apply=()=>{
+    const tg=window.Telegram?.WebApp;
+    if(!tg)return;
+    try{tg.ready();tg.expand()}catch{}
+    document.documentElement.classList.add('telegram-miniapp');
+    document.title='GlobalYouXuan AI Music';
+    const style=document.createElement('style');
+    style.textContent=`
+      .telegram-miniapp body{background:var(--tg-theme-bg-color,#f7f8fb);color:var(--tg-theme-text-color,#171a22)}
+      .telegram-miniapp .app{min-height:var(--tg-viewport-stable-height,100vh);padding-top:max(0px,var(--tg-safe-area-inset-top,0px));padding-left:max(14px,var(--tg-safe-area-inset-left,0px));padding-right:max(14px,var(--tg-safe-area-inset-right,0px))}
+      .telegram-miniapp .top{background:color-mix(in srgb,var(--tg-theme-bg-color,#f7f8fb) 94%,transparent);padding-top:max(0px,var(--tg-content-safe-area-inset-top,0px))}
+      .telegram-miniapp .dock{padding-left:max(12px,var(--tg-content-safe-area-inset-left,0px));padding-right:max(12px,var(--tg-content-safe-area-inset-right,0px));padding-bottom:max(10px,var(--tg-content-safe-area-inset-bottom,env(safe-area-inset-bottom)))}
+      .telegram-miniapp .sheet{max-height:calc(var(--tg-viewport-stable-height,100vh) - 24px)}
+    `;
+    document.head.appendChild(style);
+    const setTheme=()=>{
+      const p=tg.themeParams||{};
+      if(p.bg_color)document.documentElement.style.setProperty('--bg',p.bg_color);
+      if(p.secondary_bg_color)document.documentElement.style.setProperty('--panel',p.secondary_bg_color);
+      if(p.text_color)document.documentElement.style.setProperty('--text',p.text_color);
+      if(p.hint_color)document.documentElement.style.setProperty('--muted',p.hint_color);
+      if(p.button_color)document.documentElement.style.setProperty('--accent',p.button_color);
+    };
+    setTheme();
+    try{tg.onEvent('themeChanged',setTheme)}catch{}
+  };
+  if(window.Telegram?.WebApp){apply();return}
+  const s=document.createElement('script');
+  s.src='https://telegram.org/js/telegram-web-app.js';
+  s.async=true;
+  s.onload=apply;
+  document.head.appendChild(s);
+})();
