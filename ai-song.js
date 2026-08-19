@@ -14,7 +14,7 @@ sheet.innerHTML=`<h3>AI 写歌</h3>
 <div class="row"><button class="btn alt close" id="aiClose">取消</button><button class="btn" id="makeLyrics">1. AI 生成歌词</button></div>
 <textarea class="field" id="aiLyrics" rows="12" placeholder="AI歌词会出现在这里，也可以自己修改或直接粘贴原创歌词"></textarea>
 <input class="field" id="aiTitle" maxlength="120" placeholder="歌曲名称">
-<p class="notice">生成完成后保存到待审核，并按上传作品计算积分。免费 GPU 繁忙时可能排队。</p>
+<p class="notice">歌曲生成采用多通道自动切换。主通道繁忙或超时会自动换备用通道，不会无限卡住。</p>
 <div id="aiStatus" class="status"></div>
 <button class="btn" id="makeSong" style="width:100%;margin-top:10px">2. 生成完整歌曲</button>
 <div id="generatedBox" class="hidden" style="margin-top:12px"><audio id="generatedAudio" controls style="width:100%"></audio><div class="row"><button class="btn alt" id="regenerate">重新生成</button><button class="btn" id="saveGenerated">3. 保存到待审核</button></div></div>`;
@@ -29,7 +29,59 @@ async function ensureGuest(){let token=localStorage.getItem('aimusic_guest_token
 
 $('#makeLyrics').onclick=async()=>{const btn=$('#makeLyrics'),theme=$('#aiTheme').value.trim();if(theme.length<2){status('先写歌曲主题');return}btn.disabled=true;status('AI 正在写完整歌词…');try{const r=await fetch(`${SUPABASE_URL}/functions/v1/aimusic-lyrics`,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({theme,mood:$('#aiMood').value,style:$('#aiStyle').value,language:$('#aiLanguage').value,voice:$('#aiVoice').value})});const j=await r.json();if(!r.ok||!j?.ok)throw new Error(j?.message||j?.error||'歌词生成失败');$('#aiLyrics').value=j.lyrics;$('#aiTitle').value=j.title||'';status('歌词已生成 ✓ 可以修改后再生成歌曲。',true)}catch(e){status('歌词生成失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}};
 
-async function makeFullSong(){const lyrics=$('#aiLyrics').value.trim(),style=$('#aiStyle').value,mood=$('#aiMood').value,voice=$('#aiVoice').value;if(lyrics.length<40){status('请先生成或填写完整歌词');return}const btn=$('#makeSong');btn.disabled=true;$('#generatedBox').classList.add('hidden');generatedBlob=null;status('正在连接免费歌曲生成 GPU…');try{const app=await Client.connect('ASLP-lab/DiffRhythm2',{events:['data','status']});const info=await app.view_api();let endpoint=Object.keys(info?.named_endpoints||{}).find(k=>{const p=info.named_endpoints[k]?.parameters||[];return p.some(x=>String(x.label||'').toLowerCase().includes('lyrics'))})||Object.keys(info?.named_endpoints||{})[0];if(!endpoint)endpoint='/predict';const payload=[lyrics,'text',null,`${style}, ${mood}, ${voice}, polished original song`,0,true,16,1.3,'mp3','euler'];status('已进入歌曲生成队列，请保持页面打开…');const result=await app.predict(endpoint,payload);const out=Array.isArray(result?.data)?result.data[0]:result?.data;const url=typeof out==='string'?out:(out?.url||out?.path);if(!url)throw new Error('生成服务没有返回音频');const audioRes=await fetch(url);if(!audioRes.ok)throw new Error('生成音频读取失败');generatedBlob=await audioRes.blob();if(!generatedBlob.size)throw new Error('生成音频为空');const local=URL.createObjectURL(generatedBlob);$('#generatedAudio').src=local;$('#generatedBox').classList.remove('hidden');status('完整歌曲生成成功 ✓ 先试听，满意后保存。',true)}catch(e){console.error(e);status('歌曲生成失败：'+(e?.message||'免费通道繁忙，请稍后重试'))}finally{btn.disabled=false}}
+function timeout(promise,ms,label){return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error(label||'通道超时')),ms))])}
+
+async function generateByStability(lyrics,style,mood,voice){
+  const g=await ensureGuest();
+  status('正在使用主音乐通道生成…');
+  const ctrl=new AbortController();
+  const timer=setTimeout(()=>ctrl.abort(),100000);
+  try{
+    const r=await fetch(`${SUPABASE_URL}/functions/v1/aimusic-generate-audio`,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},
+      body:JSON.stringify({guest_token:g.token,lyrics,theme:$('#aiTheme').value.trim(),style,mood,voice,duration:180}),
+      signal:ctrl.signal
+    });
+    if(!r.ok){let msg='主通道不可用';try{const j=await r.json();msg=j?.message||j?.error||msg}catch{}throw new Error(msg)}
+    const blob=await r.blob();
+    if(!blob.size)throw new Error('主通道返回空音频');
+    return blob;
+  }finally{clearTimeout(timer)}
+}
+
+async function generateByDiffRhythm(lyrics,style,mood,voice){
+  status('主通道繁忙，已自动切换备用免费通道…');
+  const work=(async()=>{
+    const app=await Client.connect('ASLP-lab/DiffRhythm2',{events:['data','status']});
+    const info=await app.view_api();
+    let endpoint=Object.keys(info?.named_endpoints||{}).find(k=>{const p=info.named_endpoints[k]?.parameters||[];return p.some(x=>String(x.label||'').toLowerCase().includes('lyrics'))})||Object.keys(info?.named_endpoints||{})[0];
+    if(!endpoint)endpoint='/predict';
+    const payload=[lyrics,'text',null,`${style}, ${mood}, ${voice}, polished original song`,0,true,16,1.3,'mp3','euler'];
+    status('备用通道已进入生成队列…');
+    const result=await app.predict(endpoint,payload);
+    const out=Array.isArray(result?.data)?result.data[0]:result?.data;
+    const url=typeof out==='string'?out:(out?.url||out?.path);
+    if(!url)throw new Error('备用通道没有返回音频');
+    const audioRes=await fetch(url);
+    if(!audioRes.ok)throw new Error('备用音频读取失败');
+    const blob=await audioRes.blob();
+    if(!blob.size)throw new Error('备用通道返回空音频');
+    return blob;
+  })();
+  return timeout(work,120000,'备用通道生成超时');
+}
+
+async function makeFullSong(){
+  const lyrics=$('#aiLyrics').value.trim(),style=$('#aiStyle').value,mood=$('#aiMood').value,voice=$('#aiVoice').value;
+  if(lyrics.length<40){status('请先生成或填写完整歌词');return}
+  const btn=$('#makeSong');btn.disabled=true;$('#generatedBox').classList.add('hidden');generatedBlob=null;
+  let firstError='';
+  try{
+    try{generatedBlob=await generateByStability(lyrics,style,mood,voice)}catch(e){firstError=e?.message||String(e);console.warn('Stability failed:',e);generatedBlob=await generateByDiffRhythm(lyrics,style,mood,voice)}
+    const local=URL.createObjectURL(generatedBlob);$('#generatedAudio').src=local;$('#generatedBox').classList.remove('hidden');status('完整歌曲生成成功 ✓ 先试听，满意后保存。',true)
+  }catch(e){console.error(e);status('所有歌曲生成通道暂时不可用：'+(e?.message||firstError||'请稍后重试'))}finally{btn.disabled=false}
+}
 $('#makeSong').onclick=makeFullSong;$('#regenerate').onclick=makeFullSong;
 
 $('#saveGenerated').onclick=async()=>{const btn=$('#saveGenerated'),title=$('#aiTitle').value.trim(),artist=$('#aiArtist').value.trim();if(!generatedBlob){status('请先生成完整歌曲');return}if(!title||!artist){status('请填写歌曲名称和创作者名称');return}btn.disabled=true;status('正在保存歌曲到云端待审核…');const path=`ai/${Date.now()}-${crypto.randomUUID()}.mp3`;try{const g=await ensureGuest();const up=await db.storage.from('aimusic-audio').upload(path,generatedBlob,{cacheControl:'3600',upsert:false,contentType:'audio/mpeg'});if(up.error)throw up.error;const meta=await db.from('aimusic_tracks').insert({title,artist,genre:$('#aiStyle').value,description:`AI原创 · ${$('#aiMood').value} · ${$('#aiVoice').value}`,storage_path:path,status:'pending',plays:0,guest_id:g.guest_id}).select('id').single();if(meta.error){await db.storage.from('aimusic-audio').remove([path]);throw meta.error}if(typeof window.AIMUSIC_GUEST_AWARD==='function')await window.AIMUSIC_GUEST_AWARD('upload',meta.data.id);status('保存成功 ✓ 已进入待审核，并已记录上传积分。',true)}catch(e){console.error(e);status('保存失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}};
@@ -41,5 +93,4 @@ if(copyBtn)copyBtn.style.display='none';
 if(guestCode)guestCode.textContent='游客积分会自动保存在当前设备。注册正式账号后可合并兑换。';
 if(closePoints){closePoints.textContent='注册账号兑换';closePoints.classList.remove('alt');closePoints.onclick=()=>{window.location.href='https://globalyouxuan-order.pages.dev/?register=1'}}
 if(pointsBtn)pointsBtn.onclick=()=>{if(guestUrlBox)guestUrlBox.style.display='none';if(copyBtn)copyBtn.style.display='none';if(guestCode)guestCode.textContent='游客积分会自动保存在当前设备。注册正式账号后可合并兑换。';if(closePoints)closePoints.textContent='注册账号兑换';pointsModal?.classList.add('show')};
-// 清掉旧版曾经放进地址栏的 ?g= 临时凭证，凭证仍安全保存在 localStorage。
 if(new URLSearchParams(location.search).has('g'))history.replaceState(null,'',location.pathname);
