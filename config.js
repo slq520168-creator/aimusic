@@ -13,3 +13,10 @@ window.AIMUSIC_CONFIG=Object.freeze({
     ADMIN_UPLOAD:'aimusic-admin-upload'
   })
 });
+
+if(window.Telegram?.WebApp||/Telegram/i.test(navigator.userAgent)){
+  const s=document.createElement('script');
+  s.src='./telegram-card.js?v=20260820-1';
+  s.defer=true;
+  document.head.appendChild(s);
+}
