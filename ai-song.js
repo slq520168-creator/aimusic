@@ -115,7 +115,6 @@ $('#saveGenerated').onclick=async()=>{
   }catch(e){status('保存失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}
 };
 
-// 普通上传唯一提交入口：index.html 只保留 UI，不再重复绑定提交逻辑。
 const ordinarySubmit=document.querySelector('#submit');
 if(ordinarySubmit)ordinarySubmit.onclick=async()=>{
   const f=document.querySelector('#file')?.files?.[0],title=document.querySelector('#title')?.value.trim(),artist=document.querySelector('#artist')?.value.trim(),genre=document.querySelector('#genre')?.value||'其他',description=document.querySelector('#description')?.value.trim()||'',box=document.querySelector('#uploadStatus');
@@ -137,12 +136,11 @@ if(guestCode)guestCode.textContent='游客积分会自动保存在当前设备�
 if(pointsBtn)pointsBtn.onclick=()=>{if(guestCode)guestCode.textContent='游客积分会自动保存在当前设备。注册正式账号后可合并兑换。';pointsModal?.classList.add('show')};
 if(new URLSearchParams(location.search).has('g'))history.replaceState(null,'',location.pathname);
 
-// Telegram Mini App 适配：仅增强 Telegram 内显示，不改变现有音乐、上传、积分和生成逻辑。
 (function initTelegramMiniApp(){
   const apply=()=>{
     const tg=window.Telegram?.WebApp;
     if(!tg)return;
-    try{tg.ready();tg.expand()}catch{}
+    try{tg.ready()}catch{}
     document.documentElement.classList.add('telegram-miniapp');
     document.title='GlobalYouXuan AI Music';
     const style=document.createElement('style');
@@ -164,6 +162,7 @@ if(new URLSearchParams(location.search).has('g'))history.replaceState(null,'',lo
     };
     setTheme();
     try{tg.onEvent('themeChanged',setTheme)}catch{}
+    initCompactTelegramPlayer(tg);
   };
   if(window.Telegram?.WebApp){apply();return}
   const s=document.createElement('script');
@@ -172,3 +171,38 @@ if(new URLSearchParams(location.search).has('g'))history.replaceState(null,'',lo
   s.onload=apply;
   document.head.appendChild(s);
 })();
+
+function initCompactTelegramPlayer(tg){
+  if(document.querySelector('#tgCompactPlayer'))return;
+  document.documentElement.classList.add('tg-compact-mode');
+  const style=document.createElement('style');
+  style.id='tgCompactStyle';
+  style.textContent=`
+    .tg-compact-mode body{min-height:0!important;overflow:hidden;background:var(--tg-theme-bg-color,#f7f8fb)!important}
+    .tg-compact-mode body>.app,.tg-compact-mode body>.dock,.tg-compact-mode body>.modal,.tg-compact-mode body>#toast{display:none!important}
+    #tgCompactPlayer{padding:10px 10px max(10px,var(--tg-content-safe-area-inset-bottom,env(safe-area-inset-bottom)));background:var(--tg-theme-bg-color,#f7f8fb);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    #tgCompactCard{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:70px;padding:9px 10px;border:1px solid var(--tg-theme-section-separator-color,#e7eaf0);border-radius:18px;background:var(--tg-theme-secondary-bg-color,#fff);box-shadow:0 5px 18px #0000000d;cursor:pointer}
+    #tgCompactIcon{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,#7257ed,#5d7df5);color:#fff;font-size:23px;font-weight:900}
+    #tgCompactMeta{min-width:0}.tgCompactLabel{font-size:10px;color:var(--tg-theme-hint-color,#8a90a0);margin-bottom:3px}.tgCompactTitle{font-size:15px;font-weight:850;color:var(--tg-theme-text-color,#171a22);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.tgCompactArtist{font-size:11px;color:var(--tg-theme-hint-color,#8a90a0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:3px}
+    #tgCompactControls{display:flex;gap:5px}.tgCompactBtn{width:34px;height:34px;border:0;border-radius:50%;background:var(--tg-theme-bg-color,#f2f3f7);color:var(--tg-theme-button-color,#6f56e8);font-size:16px;font-weight:900}.tgCompactBtn.main{background:var(--tg-theme-button-color,#6f56e8);color:var(--tg-theme-button-text-color,#fff)}
+  `;
+  document.head.appendChild(style);
+  const wrap=document.createElement('div');
+  wrap.id='tgCompactPlayer';
+  wrap.innerHTML=`<div id="tgCompactCard" aria-label="打开完整 AI Music"><div id="tgCompactIcon">♫</div><div id="tgCompactMeta"><div class="tgCompactLabel">AI Music · 点开完整页面</div><div class="tgCompactTitle" id="tgCompactTitle">正在读取歌曲…</div><div class="tgCompactArtist" id="tgCompactArtist">GlobalYouXuan</div></div><div id="tgCompactControls"><button class="tgCompactBtn" id="tgCompactPrev">‹</button><button class="tgCompactBtn main" id="tgCompactPlay">▶</button><button class="tgCompactBtn" id="tgCompactNext">›</button></div></div>`;
+  document.body.appendChild(wrap);
+  let list=[],pos=0,compactAudio=null;
+  const title=wrap.querySelector('#tgCompactTitle'),artist=wrap.querySelector('#tgCompactArtist'),playBtn=wrap.querySelector('#tgCompactPlay');
+  const show=()=>{const s=list[pos];if(!s){title.textContent='暂无可播放歌曲';artist.textContent='GlobalYouXuan';return}title.textContent=s.title||'未命名歌曲';artist.textContent=(s.artist||'GlobalYouXuan')+(s.genre?' · '+s.genre:'')};
+  const playCurrent=async()=>{const s=list[pos];if(!s)return;if(!compactAudio){compactAudio=new Audio();compactAudio.preload='metadata';compactAudio.onplay=()=>playBtn.textContent='Ⅱ';compactAudio.onpause=()=>playBtn.textContent='▶';compactAudio.onended=()=>{pos=(pos+1)%list.length;show();playCurrent()}}compactAudio.src=db.storage.from(STORAGE_BUCKET).getPublicUrl(s.storage_path).data.publicUrl;try{await compactAudio.play()}catch{playBtn.textContent='▶'}};
+  const toggle=async()=>{if(!compactAudio||compactAudio.paused)await playCurrent();else compactAudio.pause()};
+  wrap.querySelector('#tgCompactPrev').onclick=e=>{e.stopPropagation();if(!list.length)return;pos=(pos-1+list.length)%list.length;show();if(compactAudio&&!compactAudio.paused)playCurrent()};
+  playBtn.onclick=e=>{e.stopPropagation();toggle()};
+  wrap.querySelector('#tgCompactNext').onclick=e=>{e.stopPropagation();if(!list.length)return;pos=(pos+1)%list.length;show();if(compactAudio&&!compactAudio.paused)playCurrent()};
+  wrap.querySelector('#tgCompactCard').onclick=()=>{
+    document.documentElement.classList.remove('tg-compact-mode');
+    wrap.remove();
+    try{tg.expand()}catch{}
+  };
+  db.from('aimusic_tracks').select('id,title,artist,genre,storage_path,approved_at').eq('status','approved').order('approved_at',{ascending:false}).limit(20).then(({data,error})=>{if(error){title.textContent='歌曲读取失败';artist.textContent='点开完整页面重试';return}list=data||[];show()});
+}
