@@ -96,10 +96,10 @@ async function generateCommunityAce(lyrics,style,mood,voice){
   const work=(async()=>{
     const app=await Client.connect('timefractal/ACE-Step-Turbo-Music-Gen',{events:['data','status']});
     const info=await app.view_api(),eps=info?.named_endpoints||{},names=Object.keys(eps);
-    let endpoint=names.find(k=>{const labels=(eps[k]?.parameters||[]).map(x=>String(x.label||'').toLowerCase());return labels.some(x=>x.includes('lyrics'))&&labels.some(x=>x.includes('prompt')||x.includes('description'))})||names.find(k=>/generate/i.test(k))||names[0]||'/predict';
+    let endpoint=names.find(k=>{const labels=(eps[k]?.parameters||[]).map(x=>String(x.label||'').toLowerCase());return labels.some(x=>x.includes('lyrics'))&&labels.some(x=>x.includes('prompt')||x.includes('description'))})||names.find(k=>/generate/i.test(k))||names[0]||'/generate_music';
     const seed=Math.floor(Math.random()*2147483646)+1;
     let result;
-    try{result=await app.predict(endpoint,[vocalPrompt(style,mood,voice),lyrics,60,seed,8])}catch(e){if(endpoint!=='/predict')result=await app.predict('/predict',[vocalPrompt(style,mood,voice),lyrics,60,seed,8]);else throw e}
+    try{result=await app.predict(endpoint,[vocalPrompt(style,mood,voice),lyrics,60,seed,8])}catch(e){if(endpoint!=='/generate_music')result=await app.predict('/generate_music',[vocalPrompt(style,mood,voice),lyrics,60,seed,8]);else throw e}
     return blobFromResult(result,'ACE-Step 公开备用');
   })();
   return timeout(work,90000,'ACE-Step 公开备用超时');
