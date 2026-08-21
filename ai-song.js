@@ -1,7 +1,8 @@
 const CFG=window.AIMUSIC_CONFIG;
 if(!CFG)throw new Error('AIMUSIC_CONFIG_MISSING');
 const {SUPABASE_URL,SUPABASE_KEY,STORAGE_BUCKET,FUNCTIONS}=CFG;
-const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const db=window.AIMUSIC_DB;
+if(!db)throw new Error('AIMUSIC_DB_MISSING');
 const fn=name=>`${SUPABASE_URL}/functions/v1/${name}`;
 const writeModal=document.querySelector('#writeModal');
 if(!writeModal) throw new Error('AI_WRITE_MODAL_MISSING');

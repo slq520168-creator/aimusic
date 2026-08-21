@@ -20,10 +20,3 @@ window.AIMUSIC_IS_TELEGRAM=Boolean(
   aimusicParams.get('tgWebAppVersion') ||
   aimusicParams.get('tgWebAppPlatform')
 );
-
-if(window.AIMUSIC_IS_TELEGRAM){
-  const s=document.createElement('script');
-  s.src='./telegram-card.js?v=20260822-1';
-  s.defer=true;
-  document.head.appendChild(s);
-}
