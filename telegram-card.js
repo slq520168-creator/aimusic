@@ -3,20 +3,13 @@
 
   function boot(){
     const tg=window.Telegram?.WebApp;
-    if(!tg)return;
-    let tries=0;
-    const wait=()=>{
-      tries++;
-      if(typeof db==='undefined'||typeof STORAGE_BUCKET==='undefined'){
-        if(tries<80)setTimeout(wait,100);
-        return;
-      }
-      build(tg);
-    };
-    wait();
+    const db=window.AIMUSIC_DB;
+    const bucket=window.AIMUSIC_BUCKET;
+    if(!tg||!db||!bucket)return;
+    build(tg,db,bucket);
   }
 
-  function build(tg){
+  function build(tg,db,STORAGE_BUCKET){
     document.querySelector('#tgCompactPlayer')?.remove();
     document.querySelector('#tgBetterCard')?.remove();
     document.documentElement.classList.add('tg-compact-mode');
