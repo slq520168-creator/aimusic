@@ -6,9 +6,9 @@
 <div class="dock"><div class="quick"><button id="writeBtn">写歌</button><button id="uploadBtn">上传</button><button id="downloadBtn">下载</button><button id="pointsBtn">兑换积分</button></div><div class="player"><div class="now"><small>当前歌曲</small><b id="nowTitle">等待歌曲</b></div><div class="controls"><button id="prev">‹</button><button id="toggle">▶</button><button id="next">›</button></div></div></div>
 <audio id="audio" preload="metadata"></audio><div id="toast" class="toast"></div>
 <div class="modal" id="uploadModal"><div class="sheet"><h3>上传原创歌曲</h3><input class="field" id="title" maxlength="120" placeholder="歌曲名称"><input class="field" id="artist" maxlength="80" placeholder="创作者名称"><select class="field" id="genre"><option>流行</option><option>电子</option><option>说唱</option><option>治愈</option><option>纯音乐</option><option>其他</option></select><textarea class="field" id="description" maxlength="500" rows="3" placeholder="歌曲简介（可选）"></textarea><input class="field" id="file" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm"><p class="notice">上传成功 +500 积分；单日上传/下载合计最高 +2000。作品进入待审核。</p><div id="uploadStatus" class="status"></div><div class="row"><button class="btn alt close">取消</button><button class="btn" id="submit">提交审核</button></div></div></div>
-<div class="modal" id="writeModal"><div class="sheet"><h3>AI 写歌</h3><p class="notice">正在加载 AI 歌曲创作入口…</p></div></div>
+<div class="modal" id="writeModal"><div class="sheet"></div></div>
 <div class="modal" id="pointsModal"><div class="sheet"><h3>兑换积分</h3><div class="points-big"><span id="pointsValue">0</span> 积分</div><p id="guestCode" class="notice">完成一次上传或下载后，会自动建立游客积分身份。</p><p class="notice">不需要保存临时网址。点击“注册并兑换”直接进入 GlobalYouXuan 注册页面；注册或登录成功后，当前游客积分自动合并到正式会员积分，并额外获得注册奖励。</p><div class="row"><button class="btn alt" id="closePoints">继续听歌</button><button class="btn" id="registerPoints">注册并兑换</button></div></div></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="./config.js?v=20260820-1"></script><script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="./config.js?v=20260822-1"></script><script>
 const CFG=window.AIMUSIC_CONFIG;if(!CFG)throw new Error('AIMUSIC_CONFIG_MISSING');
 const {SUPABASE_URL,SUPABASE_KEY,STORAGE_BUCKET,MAIN_SITE,FUNCTIONS}=CFG;
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY),audio=document.querySelector('#audio'),songsEl=document.querySelector('#songs'),now=document.querySelector('#nowTitle'),toggle=document.querySelector('#toggle');
@@ -19,9 +19,11 @@ function publicUrl(path){return db.storage.from(STORAGE_BUCKET).getPublicUrl(pat
 function toast(t){const e=document.querySelector('#toast');e.textContent=t;e.classList.add('show');clearTimeout(window.__tt);window.__tt=setTimeout(()=>e.classList.remove('show'),2200)}
 async function guestApi(body){const r=await fetch(fn(FUNCTIONS.GUEST_POINTS),{method:'POST',headers:{'content-type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify(body)});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||j.error||'游客积分服务失败');return j}
 function updateGuestUI(){const b=document.querySelector('#guestBar');if(guestInfo){b.textContent=`游客 ${guestInfo.display_code} · ${guestInfo.points} 积分 · 上传/下载各 +500 · 每日最高 2000`;document.querySelector('#pointsValue').textContent=guestInfo.points;document.querySelector('#guestCode').textContent='游客编号：'+guestInfo.display_code}else{b.textContent='游客模式 · 上传/下载各 +500 积分 · 每日最高 2000';document.querySelector('#pointsValue').textContent='0';document.querySelector('#guestCode').textContent='完成一次上传或下载后，会自动建立游客积分身份。'}}
-async function ensureGuest(){if(guestToken){try{guestInfo=await guestApi({action:'status',token:guestToken});updateGuestUI();return guestInfo}catch{localStorage.removeItem('aimusic_guest_token');guestToken=''}}const j=await guestApi({action:'issue'});guestToken=j.token;guestInfo=j;localStorage.setItem('aimusic_guest_token',guestToken);updateGuestUI();return j}
+async function ensureGuest(){if(guestToken){try{guestInfo=await guestApi({action:'status',token:guestToken});updateGuestUI();return {token:guestToken,...guestInfo}}catch{localStorage.removeItem('aimusic_guest_token');guestToken=''}}const j=await guestApi({action:'issue'});guestToken=j.token;guestInfo=j;localStorage.setItem('aimusic_guest_token',guestToken);updateGuestUI();return {token:guestToken,...j}}
 async function award(kind,resource){try{await ensureGuest();const j=await guestApi({action:'award',token:guestToken,kind,resource_id:String(resource)});guestInfo={...guestInfo,...j,display_code:guestInfo.display_code};updateGuestUI();if(j.awarded>0)toast(`+${j.awarded} 积分`);else if(j.daily_earned>=j.daily_cap)toast('今日积分已达 2000 上限')}catch(e){console.error(e)}}
 window.AIMUSIC_GUEST_AWARD=award;
+window.AIMUSIC_ENSURE_GUEST=ensureGuest;
+window.AIMUSIC_GUEST_API=guestApi;
 async function restoreGuest(){if(!guestToken)return;try{guestInfo=await guestApi({action:'status',token:guestToken});updateGuestUI()}catch{guestToken='';localStorage.removeItem('aimusic_guest_token')}}
 function render(){document.querySelector('#count').textContent=songs.length+'首';if(!songs.length){songsEl.className='empty';songsEl.textContent='还没有审核通过的歌曲。';now.textContent='等待歌曲';return}songsEl.className='';songsEl.innerHTML=songs.map((s,n)=>`<div class="song ${n===i?'active':''}" data-i="${n}"><div class="num">${String(n+1).padStart(2,'0')}</div><div class="song-main"><b>${esc(s.title)}</b><small>${esc(s.artist)} · ${esc(s.genre)} · ${Number(s.plays||0)} 次播放</small></div><button class="play" data-i="${n}">${n===i&&!audio.paused?'Ⅱ':'▶'}</button></div>`).join('');document.querySelectorAll('.play').forEach(b=>b.onclick=e=>{e.stopPropagation();const n=+b.dataset.i;if(n===i&&!audio.paused)audio.pause();else if(n===i)audio.play();else play(n)})}
 async function loadSongs(){const {data,error}=await db.from('aimusic_tracks').select('id,title,artist,genre,storage_path,plays,created_at').eq('status','approved').order('approved_at',{ascending:false});if(error){songsEl.className='empty';songsEl.textContent='曲库连接失败，请稍后刷新。';return}songs=(data||[]).map(s=>({...s,url:publicUrl(s.storage_path)}));if(songs.length&&i<0){i=0;now.textContent=songs[0].title+' · '+songs[0].artist}render()}
@@ -34,18 +36,4 @@ document.querySelector('#registerPoints').onclick=async()=>{await ensureGuest();
 // 普通上传提交逻辑仅在 ai-song.js 中绑定，避免重复 onclick 互相覆盖。
 document.querySelector('#downloadBtn').onclick=async()=>{if(!songs.length){toast('当前没有可下载歌曲');return}const s=songs[i<0?0:i];try{const r=await fetch(s.url);if(!r.ok)throw new Error('下载失败');const blob=await r.blob(),u=URL.createObjectURL(blob),a=document.createElement('a');a.href=u;a.download=(s.title||'AI-Music')+'.mp3';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),3000);await award('download',s.id)}catch{window.open(s.url,'_blank')}};
 restoreGuest();loadSongs();
-</script><script>
-(function(){
-  const launch=location.hash+location.search;
-  const isTelegram=/(?:^|[?#&])tgWebAppData=/.test(launch);
-  window.__AIMUSIC_REAL_TELEGRAM__=isTelegram;
-  if(isTelegram)return;
-  const restore=()=>{
-    document.documentElement.classList.remove('telegram-miniapp','tg-compact-mode');
-    document.querySelector('#tgCompactPlayer')?.remove();
-    document.querySelector('#tgCompactStyle')?.remove();
-  };
-  new MutationObserver(restore).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
-  restore();
-})();
-</script><script type="module" src="./ai-song.js?v=20260820-3"></script></body></html>
+</script><script type="module" src="./ai-song.js?v=20260822-1"></script></body></html>
