@@ -18,26 +18,12 @@ const aimusicParams=new URLSearchParams(location.search);
 window.AIMUSIC_IS_TELEGRAM=Boolean(
   aimusicParams.get('tgWebAppData') ||
   aimusicParams.get('tgWebAppVersion') ||
-  aimusicParams.get('tgWebAppPlatform') ||
-  /Telegram/i.test(navigator.userAgent)
+  aimusicParams.get('tgWebAppPlatform')
 );
-
-// Normal Safari / browser must never be converted into Telegram compact mode.
-// ai-song.js historically tries to inject Telegram SDK everywhere, so block only that
-// single SDK injection outside a genuine Telegram launch. All other scripts are untouched.
-if(!window.AIMUSIC_IS_TELEGRAM){
-  const originalAppendChild=document.head.appendChild.bind(document.head);
-  document.head.appendChild=function(node){
-    if(node?.tagName==='SCRIPT' && /telegram\.org\/js\/telegram-web-app\.js/i.test(node.src||'')){
-      return node;
-    }
-    return originalAppendChild(node);
-  };
-}
 
 if(window.AIMUSIC_IS_TELEGRAM){
   const s=document.createElement('script');
-  s.src='./telegram-card.js?v=20260820-2';
+  s.src='./telegram-card.js?v=20260822-1';
   s.defer=true;
   document.head.appendChild(s);
 }

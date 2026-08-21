@@ -1,4 +1,6 @@
 (function(){
+  if(!window.AIMUSIC_IS_TELEGRAM)return;
+
   function boot(){
     const tg=window.Telegram?.WebApp;
     if(!tg)return;
