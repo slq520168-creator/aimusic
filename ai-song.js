@@ -17,7 +17,6 @@ sheet.innerHTML=`<h3 style="margin:0 0 10px">AI 写歌</h3>
 <textarea class="field" id="aiLyrics" rows="5" style="height:126px;min-height:126px;max-height:126px;overflow-y:auto;resize:none" placeholder="AI 歌词会出现在这里，也可以自己修改或直接粘贴原创歌词"></textarea>
 <input class="field" id="aiTitle" maxlength="120" placeholder="歌曲名称">
 <button class="btn" id="makeSong" style="width:100%;margin:4px 0 6px">2. 生成完整歌曲</button>
-<p class="notice" style="margin:5px 0">人声歌曲统一走服务器生成通道；浏览器不再直连公开 Gradio 节点。纯音乐使用服务器 Stability 通道。</p>
 <div id="aiStatus" class="status"></div>
 <div id="generatedBox" class="hidden" style="margin-top:10px"><audio id="generatedAudio" controls style="width:100%"></audio><div class="row" style="margin-top:8px"><button class="btn alt" id="regenerate">重新生成</button><button class="btn" id="saveGenerated">3. 保存到待审核</button></div></div>
 <button class="btn alt" id="aiClose" style="width:100%;margin-top:9px">关闭</button>`;
