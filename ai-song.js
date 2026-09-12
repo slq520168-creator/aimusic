@@ -8,24 +8,18 @@ const writeModal=document.querySelector('#writeModal');
 if(!writeModal) throw new Error('AI_WRITE_MODAL_MISSING');
 const sheet=writeModal.querySelector('.sheet');
 
-sheet.innerHTML=`<h3 style="margin:0 0 10px">AI 写歌</h3>
-<input class="field" id="aiTheme" maxlength="300" placeholder="歌曲主题，例如：离开家乡后的第一个夜晚">
-<div class="row"><select class="field" id="aiMood"><option>温暖</option><option>伤感</option><option>励志</option><option>浪漫</option><option>自由</option><option>热烈</option></select><select class="field" id="aiStyle"><option>流行</option><option>民谣</option><option>电子</option><option>说唱</option><option>摇滚</option><option>R&B</option><option>国风</option><option>纯音乐氛围</option></select></div>
-<div class="row"><select class="field" id="aiLanguage"><option>中文</option><option>English</option></select><select class="field" id="aiVoice"><option>女声</option><option>男声</option><option>男女合唱</option><option>自然人声</option></select></div>
-<input class="field" id="aiArtist" maxlength="80" placeholder="创作者名称">
-<button class="btn" id="makeLyrics" style="width:100%;margin:4px 0 6px">1. AI 生成歌词</button>
-<textarea class="field" id="aiLyrics" rows="5" style="height:126px;min-height:126px;max-height:126px;overflow-y:auto;resize:none" placeholder="AI 歌词会出现在这里，也可以自己修改或直接粘贴原创歌词"></textarea>
-<input class="field" id="aiTitle" maxlength="120" placeholder="歌曲名称">
-<button class="btn" id="makeSong" style="width:100%;margin:4px 0 6px">2. 生成完整歌曲</button>
-<div id="aiStatus" class="status"></div>
-<div id="generatedBox" class="hidden" style="margin-top:10px"><audio id="generatedAudio" controls style="width:100%"></audio><div class="row" style="margin-top:8px"><button class="btn alt" id="regenerate">重新生成</button><button class="btn" id="saveGenerated">3. 保存到待审核</button></div></div>
-<button class="btn alt" id="aiClose" style="width:100%;margin-top:9px">关闭</button>`;
+sheet.innerHTML=`<h3 style="margin:0 0 8px">免费写歌</h3>
+<p class="notice" style="margin-top:0">点击新页打开对方网站。本站不接 API、不在服务器生成。登录、额度、下载都在对方站完成。做好后可回本站上传待审核。</p>
+<a class="btn" href="https://suno.com" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Suno · 主入口（每日约10首）</a>
+<a class="btn" href="https://boomy.com" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0;background:#148a66">Boomy · 额度最多（无限生成）</a>
+<a class="btn alt" href="https://soundful.com" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Soundful · 无限试做（月 1 次 MP3）</a>
+<a class="btn alt" href="https://pixabay.com/music/" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Pixabay Music · 商户安全选曲</a>
+<a class="btn alt" href="https://www.flow-music.app" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Flow Music · 每日补积分</a>
+<p class="notice">Suno 免费不能商用。Boomy 变现要付费。Pixabay 非 AI 生成，限制最少。</p>
+<button class="btn alt" id="aiClose" style="width:100%;margin-top:6px">关闭</button>`;
 
 const $=s=>sheet.querySelector(s);
-const status=(text,ok=false)=>{const e=$('#aiStatus');e.textContent=text;e.className='status show'+(ok?' ok':'')};
 $('#aiClose').onclick=()=>writeModal.classList.remove('show');
-let generatedBlob=null;
-let generatedKind='vocal';
 
 async function ensureGuest(){
   if(typeof window.AIMUSIC_ENSURE_GUEST!=='function')throw new Error('ENSURE_GUEST_MISSING');
@@ -39,76 +33,6 @@ async function submitTrack(g,data){
   if(!r.ok||!j.ok) throw new Error(j.message||j.error||'待审核记录保存失败');
   return j;
 }
-
-$('#makeLyrics').onclick=async()=>{
-  const btn=$('#makeLyrics'),theme=$('#aiTheme').value.trim();
-  if(theme.length<2){status('先写歌曲主题');return}
-  btn.disabled=true;status('AI 正在写完整歌词…');
-  try{
-    const r=await fetch(fn(FUNCTIONS.LYRICS),{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({theme,mood:$('#aiMood').value,style:$('#aiStyle').value,language:$('#aiLanguage').value,voice:$('#aiVoice').value})});
-    const j=await r.json();
-    if(!r.ok||!j?.ok) throw new Error(j?.message||j?.error||'歌词生成失败');
-    $('#aiLyrics').value=j.lyrics;$('#aiTitle').value=j.title||'';
-    status('歌词已生成 ✓ 下面直接生成完整歌曲。',true);
-    setTimeout(()=>$('#makeSong').scrollIntoView({behavior:'smooth',block:'center'}),80);
-  }catch(e){status('歌词生成失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}
-};
-
-async function generateVocalServer(lyrics,style,mood,voice){
-  const g=await ensureGuest();
-  status('正在使用服务器人声通道生成…');
-  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),115000);
-  try{
-    const r=await fetch(fn(FUNCTIONS.VOCAL_GENERATE),{method:'POST',headers:{'content-type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({guest_token:g.token,lyrics,style,mood,voice,language:$('#aiLanguage').value}),signal:ctrl.signal});
-    if(!r.ok){
-      let msg='服务器人声通道不可用';
-      try{const j=await r.json();msg=j?.message||j?.error||msg}catch{}
-      throw new Error(msg);
-    }
-    const blob=await r.blob();
-    if(!blob.size) throw new Error('服务器人声通道返回空音频');
-    return blob;
-  }finally{clearTimeout(timer)}
-}
-
-async function generateInstrumental(style,mood){
-  const g=await ensureGuest();status('正在使用 Stability 纯音乐通道生成…');
-  const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),100000);
-  try{
-    const r=await fetch(fn(FUNCTIONS.GENERATE_AUDIO),{method:'POST',headers:{'content-type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({guest_token:g.token,lyrics:'',theme:$('#aiTheme').value.trim(),style,mood,voice:'instrumental',duration:180}),signal:ctrl.signal});
-    if(!r.ok){let msg='Stability 不可用';try{const j=await r.json();msg=j?.message||j?.error||msg}catch{}throw new Error(msg)}
-    const blob=await r.blob();if(!blob.size)throw new Error('Stability 返回空音频');return blob;
-  }finally{clearTimeout(timer)}
-}
-
-async function makeFullSong(){
-  const lyrics=$('#aiLyrics').value.trim(),style=$('#aiStyle').value,mood=$('#aiMood').value,voice=$('#aiVoice').value,isInstrumental=style==='纯音乐氛围';
-  if(!isInstrumental&&lyrics.length<40){status('请先生成或填写完整歌词');return}
-  const btn=$('#makeSong');btn.disabled=true;$('#generatedBox').classList.add('hidden');generatedBlob=null;generatedKind=isInstrumental?'instrumental':'vocal';
-  try{
-    generatedBlob=isInstrumental?await generateInstrumental(style,mood):await generateVocalServer(lyrics,style,mood,voice);
-    const local=URL.createObjectURL(generatedBlob);$('#generatedAudio').src=local;$('#generatedBox').classList.remove('hidden');
-    status(isInstrumental?'纯音乐生成成功 ✓ 请先试听。':'人声完整歌曲生成成功 ✓ 请先试听。',true);
-    setTimeout(()=>$('#generatedBox').scrollIntoView({behavior:'smooth',block:'center'}),80);
-  }catch(e){status('当前歌曲生成服务暂时不可用：'+(e?.message||String(e)))}finally{btn.disabled=false}
-}
-$('#makeSong').onclick=makeFullSong;$('#regenerate').onclick=makeFullSong;
-
-$('#saveGenerated').onclick=async()=>{
-  const btn=$('#saveGenerated'),title=$('#aiTitle').value.trim(),artist=$('#aiArtist').value.trim();
-  if(!generatedBlob){status('请先生成完整歌曲');return}
-  if(!title||!artist){status('请填写歌曲名称和创作者名称');return}
-  btn.disabled=true;status('正在保存歌曲并登记后台待审核…');
-  const path=`ai/${Date.now()}-${crypto.randomUUID()}.mp3`;
-  try{
-    const g=await ensureGuest();
-    const up=await db.storage.from(STORAGE_BUCKET).upload(path,generatedBlob,{cacheControl:'3600',upsert:false,contentType:generatedBlob.type||'audio/mpeg'});if(up.error)throw up.error;
-    let meta;
-    try{meta=await submitTrack(g,{title,artist,genre:$('#aiStyle').value,description:`AI原创 · ${generatedKind==='vocal'?'人声完整歌曲':'纯音乐'} · ${$('#aiMood').value} · ${$('#aiVoice').value}`,storage_path:path})}catch(e){await db.storage.from(STORAGE_BUCKET).remove([path]);throw e}
-    if(typeof window.AIMUSIC_GUEST_AWARD==='function')await window.AIMUSIC_GUEST_AWARD('upload',meta.id);
-    status('保存成功 ✓ 后台待审核已登记。',true);
-  }catch(e){status('保存失败：'+(e?.message||'请稍后重试'))}finally{btn.disabled=false}
-};
 
 const ordinarySubmit=document.querySelector('#submit');
 if(ordinarySubmit)ordinarySubmit.onclick=async()=>{
