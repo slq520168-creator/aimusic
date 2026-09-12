@@ -8,18 +8,44 @@ const writeModal=document.querySelector('#writeModal');
 if(!writeModal) throw new Error('AI_WRITE_MODAL_MISSING');
 const sheet=writeModal.querySelector('.sheet');
 
-sheet.innerHTML=`<h3 style="margin:0 0 8px">免费写歌</h3>
-<p class="notice" style="margin-top:0">点击新页打开对方网站。本站不接 API、不在服务器生成。登录、额度、下载都在对方站完成。做好后可回本站上传待审核。</p>
-<a class="btn" href="https://suno.com" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Suno · 主入口（每日约10首）</a>
-<a class="btn" href="https://boomy.com" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0;background:#148a66">Boomy · 额度最多（无限生成）</a>
-<a class="btn alt" href="https://soundful.com" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Soundful · 无限试做（月 1 次 MP3）</a>
-<a class="btn alt" href="https://pixabay.com/music/" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Pixabay Music · 商户安全选曲</a>
-<a class="btn alt" href="https://www.flow-music.app" target="_blank" rel="noopener" style="display:block;text-align:center;text-decoration:none;margin:6px 0">Flow Music · 每日补积分</a>
-<p class="notice">Suno 免费不能商用。Boomy 变现要付费。Pixabay 非 AI 生成，限制最少。</p>
-<button class="btn alt" id="aiClose" style="width:100%;margin-top:6px">关闭</button>`;
+const TOOLS=[
+  {id:'suno',name:'Suno 主入口',url:'https://suno.com'},
+  {id:'boomy',name:'Boomy 无限',url:'https://boomy.com'},
+  {id:'soundful',name:'Soundful',url:'https://soundful.com'},
+  {id:'pixabay',name:'Pixabay',url:'https://pixabay.com/music/'},
+  {id:'flow',name:'Flow Music',url:'https://www.flow-music.app'}
+];
 
-const $=s=>sheet.querySelector(s);
-$('#aiClose').onclick=()=>writeModal.classList.remove('show');
+sheet.style.maxHeight='96vh';
+sheet.style.height='92vh';
+sheet.style.display='flex';
+sheet.style.flexDirection='column';
+sheet.style.padding='12px';
+
+sheet.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+  <h3 style="margin:0;font-size:16px">站内写歌</h3>
+  <button class="btn alt" id="aiClose" style="padding:8px 12px;width:auto">关闭</button>
+</div>
+<div id="aiTabs" style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:8px"></div>
+<iframe id="aiFrame" title="写歌" src="https://suno.com" style="flex:1;width:100%;min-height:62vh;border:0;border-radius:14px;background:#fff" referrerpolicy="no-referrer-when-downgrade" allow="clipboard-write; fullscreen; autoplay"></iframe>`;
+
+const tabs=sheet.querySelector('#aiTabs');
+const frame=sheet.querySelector('#aiFrame');
+TOOLS.forEach((t,i)=>{
+  const b=document.createElement('button');
+  b.className='btn'+(i?' alt':'');
+  b.type='button';
+  b.textContent=t.name;
+  b.style.cssText='flex:0 0 auto;padding:8px 10px;font-size:12px;white-space:nowrap';
+  b.onclick=()=>{
+    tabs.querySelectorAll('button').forEach(x=>{x.className='btn alt';x.style.cssText=b.style.cssText});
+    b.className='btn';
+    frame.src=t.url;
+  };
+  tabs.appendChild(b);
+});
+
+sheet.querySelector('#aiClose').onclick=()=>writeModal.classList.remove('show');
 
 async function ensureGuest(){
   if(typeof window.AIMUSIC_ENSURE_GUEST!=='function')throw new Error('ENSURE_GUEST_MISSING');
