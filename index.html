@@ -8,14 +8,14 @@
 <div class="modal" id="uploadModal"><div class="sheet"><h3>上传原创歌曲</h3><input class="field" id="title" maxlength="120" placeholder="歌曲名称"><input class="field" id="artist" maxlength="80" placeholder="创作者名称"><select class="field" id="genre"><option>流行</option><option>电子</option><option>说唱</option><option>治愈</option><option>纯音乐</option><option>其他</option></select><textarea class="field" id="description" maxlength="500" rows="3" placeholder="歌曲简介（可选）"></textarea><input class="field" id="file" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.webm"><p class="notice">上传成功 +500 积分；单日上传/下载合计最高 +2000。作品进入待审核。</p><div id="uploadStatus" class="status"></div><div class="row"><button class="btn alt close">取消</button><button class="btn" id="submit">提交审核</button></div></div></div>
 <div class="modal" id="writeModal"><div class="sheet"></div></div>
 <div class="modal" id="pointsModal"><div class="sheet"><h3>兑换积分</h3><div class="points-big"><span id="pointsValue">0</span> 积分</div><p id="guestCode" class="notice">完成一次上传或下载后，会自动建立游客积分身份。</p><div class="row"><button class="btn alt" id="closePoints">继续听歌</button><button class="btn" id="registerPoints">注册并兑换</button></div></div></div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="./config.js?v=20260822-2"></script><script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script><script src="./config.js?v=20260912-1"></script><script>
 const CFG=window.AIMUSIC_CONFIG;if(!CFG)throw new Error('AIMUSIC_CONFIG_MISSING');
 const {SUPABASE_URL,SUPABASE_KEY,STORAGE_BUCKET,MAIN_SITE,FUNCTIONS}=CFG;
 const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);window.AIMUSIC_DB=db;window.AIMUSIC_BUCKET=STORAGE_BUCKET;const audio=document.querySelector('#audio'),songsEl=document.querySelector('#songs'),now=document.querySelector('#nowTitle'),toggle=document.querySelector('#toggle');
 const fn=name=>SUPABASE_URL+'/functions/v1/'+name;
 const TRACK_CACHE='aimusic_tracks_cache';
 let songs=[],i=-1,guestToken=localStorage.getItem('aimusic_guest_token')||'',guestInfo=null;
-const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&','<':'<','>':'>','"':'&quot',"'":'&#39;'}[m]));
+const esc=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&','<':'<','>':'>','"':'"',"'":'&#39;'}[m]));
 function publicUrl(path){return db.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl}
 function toast(t){const e=document.querySelector('#toast');e.textContent=t;e.classList.add('show');clearTimeout(window.__tt);window.__tt=setTimeout(()=>e.classList.remove('show'),2200)}
 async function guestApi(body){const r=await fetch(fn(FUNCTIONS.GUEST_POINTS),{method:'POST',headers:{'content-type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify(body)});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.message||j.error||'游客积分服务失败');return j}
@@ -38,7 +38,7 @@ audio.onended=()=>play(i+1);audio.onpause=markPlayState;audio.onplay=markPlaySta
 songsEl.onclick=e=>{const row=e.target.closest('.song');if(!row||!songsEl.contains(row))return;const n=+row.dataset.i;if(n===i&&!audio.paused)audio.pause();else if(n===i)audio.play();else play(n)};
 document.querySelector('#next').onclick=()=>play(i<0?0:i+1);document.querySelector('#prev').onclick=()=>play(i<0?0:i-1);toggle.onclick=()=>{if(!songs.length)return;if(i<0)return play(0);audio.paused?audio.play():audio.pause()};
 const uploadModal=document.querySelector('#uploadModal'),writeModal=document.querySelector('#writeModal'),pointsModal=document.querySelector('#pointsModal');
-function loadWriter(){if(window.__AIMUSIC_WRITER)return window.__AIMUSIC_WRITER;window.__AIMUSIC_WRITER=new Promise((ok,fail)=>{const s=document.createElement('script');s.type='module';s.src='./ai-song.js?v=20260822-3';s.onload=ok;s.onerror=fail;document.body.appendChild(s)});return window.__AIMUSIC_WRITER}
+function loadWriter(){if(window.__AIMUSIC_WRITER)return window.__AIMUSIC_WRITER;window.__AIMUSIC_WRITER=new Promise((ok,fail)=>{const s=document.createElement('script');s.type='module';s.src='./ai-song.js?v=20260912-1';s.onload=ok;s.onerror=fail;document.body.appendChild(s)});return window.__AIMUSIC_WRITER}
 document.querySelector('#uploadBtn').onclick=async()=>{await loadWriter();uploadModal.classList.add('show')};
 document.querySelector('#writeBtn').onclick=async()=>{await loadWriter();writeModal.classList.add('show')};
 document.querySelector('#pointsBtn').onclick=()=>{updateGuestUI();pointsModal.classList.add('show')};document.querySelector('#closePoints').onclick=()=>pointsModal.classList.remove('show');document.querySelectorAll('#uploadModal .close').forEach(x=>x.onclick=()=>uploadModal.classList.remove('show'));
