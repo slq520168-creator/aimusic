@@ -28,7 +28,6 @@ const status=(text,ok=false)=>{const e=$('#aiStatus');e.textContent=text;e.class
 $('#aiClose').onclick=()=>writeModal.classList.remove('show');
 let generatedBlob=null;
 
-function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&','<':'<','>':'>','"':'"'}[c]))}
 function fileUrl(x,base){
   function abs(u){
     if(!u)return '';
@@ -92,21 +91,28 @@ async function runGradio(base,apiName,fnIndex,data,onInfo){
   if(!res.ok||!res.body)throw new Error('连接失败');
   return readSse(res,onInfo);
 }
-function aceData(prompt){
+function aceData(prompt,lang){
+  const lg=lang==='English'?'en':'zh';
   return [
-    'acestep-v15-xl-turbo','simple',prompt,'zh',
-    prompt,'',0,'','','zh',
+    'acestep-v15-xl-turbo','simple',prompt,lg,
+    prompt,'',0,'','',lg,
     8,7.0,true,'-1',null,
-    -1,1,null,null,0.0,
+    -1,2,null,null,0.0,
     -1,'Fill the audio semantic mask based on the given conditions:',1.0,'text2music',false,
     0.0,1.0,3.0,'ode','',
-    'mp3',0.85,false,2.0,0,
+    'mp3',0.85,true,2.0,0,
     0.9,'NO USER INPUT',true,true,true,
     null,
     false,true,false,false,0.5,
     8,null,[],false,
     null,null,null,null
   ];
+}
+function niceErr(e){
+  const s=String(e&&e.message||e||'');
+  if(/needed:|didn\'t receive enough|Internal Gradio/i.test(s))return '对面模型正在繁忙或升级，请再点一次';
+  if(/ZeroGPU|quota|queue/i.test(s))return '免费机器排满，请稍等再试';
+  return s.slice(0,120);
 }
 async function blobFromUrl(url){
   const r=await fetch(url);
@@ -128,10 +134,11 @@ async function makeFullSong(){
   btn.disabled=true;$('#generatedBox').classList.add('hidden');generatedBlob=null;
   try{
     const prompt=buildPrompt();
+    const lang=$('#aiLanguage').value;
     status('ACE-Step 排队中…');
     let url='';
     try{
-      const data=await runGradio(ACE,'/generation_wrapper',77,aceData(prompt),t=>status('ACE-Step · '+t));
+      const data=await runGradio(ACE,'/generation_wrapper',77,aceData(prompt,lang),t=>status('ACE-Step · '+t));
       url=fileUrl(data,ACE);
     }catch(e){
       status('ACE 忙，改走 MusicGen…');
@@ -144,7 +151,7 @@ async function makeFullSong(){
     $('#generatedBox').classList.remove('hidden');
     if(!$('#aiTitle').value.trim())$('#aiTitle').value=$('#aiTheme').value.trim().slice(0,40)||'未命名';
     status('生成成功，先试听。',true);
-  }catch(e){status('生成失败：'+(e.message||e))}finally{btn.disabled=false}
+  }catch(e){status('生成失败：'+niceErr(e))}finally{btn.disabled=false}
 }
 $('#makeSong').onclick=makeFullSong;$('#regenerate').onclick=makeFullSong;
 
