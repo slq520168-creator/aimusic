@@ -1,1 +1,23 @@
-<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>优选 AI 视频</title><body><h1>优选 AI 视频</h1><p>免费模式，不绑卡。</p></body></html>
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b0b0f"><title>优选 AI 视频｜免费生成器</title><link rel="stylesheet" href="./video.css"></head>
+<body><main class="w">
+<div class="top"><div class="brand">🎬 优选 AI 视频</div><div class="pill">免费模式 · 不绑卡</div></div>
+<section class="hero"><h1>主题 → 分镜 → 画面 → 配音 → 字幕 → 音乐 → 完整视频</h1><p>手机直接使用。无需购买积分、无需绑定银行卡。免费公共模型生成脚本与画面，浏览器完成配音、字幕、背景音乐和成片合成。</p></section>
+<section class="card">
+<div class="lab">你想做什么视频？</div>
+<textarea id="topic" placeholder="例如：一家温馨咖啡馆从清晨开门到迎接第一位客人的故事。真实电影感，中文女声旁白。"></textarea>
+<div class="grid">
+<label class="sel"><span>视频时长</span><select id="duration"><option value="30">30 秒</option><option value="60">1 分钟</option><option value="180">3 分钟</option><option value="300">5 分钟</option><option value="600">10 分钟</option></select></label>
+<label class="sel"><span>画面比例</span><select id="ratio"><option value="16:9">横屏 16:9</option><option value="9:16">竖屏 9:16</option><option value="1:1">方形 1:1</option></select></label>
+<label class="sel"><span>画面风格</span><select id="style"><option>电影写实</option><option>温暖生活</option><option>纪录片</option><option>商业广告</option><option>动漫插画</option></select></label>
+<label class="sel"><span>语言</span><select id="lang"><option value="zh">中文</option><option value="en">English</option></select></label>
+</div>
+<div class="tog"><label><input id="narration" type="checkbox" checked> AI 配音</label><label><input id="subtitle" type="checkbox" checked> 自动字幕</label><label><input id="music" type="checkbox" checked> 背景音乐</label></div>
+<div class="actions"><button class="pri" id="oneClick">✨ 一键免费生成</button><button class="sec" id="planBtn">只生成分镜</button></div>
+<div class="prog"><i id="bar"></i></div><div class="st" id="status">等待开始</div>
+<div class="note">免费公共接口忙时可能限速，页面会自动回退，不会要求付款。先用 30 秒测试最稳。</div>
+</section>
+<section class="card"><div class="lab">分镜</div><div id="scenes" class="scenes"><div class="note">还没有分镜</div></div><div class="actions"><button class="sec" id="imageBtn" disabled>生成全部画面</button><button class="sec" id="voiceBtn" disabled>生成配音</button><button class="green" id="renderBtn" disabled>导出完整视频</button></div></section>
+<section class="card"><div class="lab">成品预览</div><div class="preview" id="preview">生成后在这里播放</div><div id="downloadWrap"></div></section>
+<section class="card"><div class="lab">运行日志</div><div class="logs" id="logs">Ready.</div></section>
+</main><script src="./video-core.js"></script><script src="./video-render.js"></script></body></html>
