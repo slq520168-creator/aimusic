@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    {
+      "source": "/",
+      "has": [
+        { "type": "header", "key": "host", "value": "yxdoc.vercel.app" }
+      ],
+      "destination": "https://globalyouxuan-order.pages.dev/shop.html"
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        { "type": "header", "key": "host", "value": "yxdoc.vercel.app" }
+      ],
+      "destination": "https://globalyouxuan-order.pages.dev/:path*"
+    }
+  ]
+}
